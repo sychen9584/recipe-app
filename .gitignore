@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm
+
+# Frontend
+node_modules/
+frontend/dist/
+
+# Editor
+.vscode/
+.idea/

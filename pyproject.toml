@@ -1,0 +1,18 @@
+[project]
+name = "recipe-app"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "sqlite-utils",
+    "python-multipart",
+    "httpx",
+    "beautifulsoup4",
+    "anthropic",
+    "pint",
+    "python-dotenv",
+    "h2>=4.3.0",
+    "brotli>=1.2.0",
+    "recipe-scrapers>=15.11.0",
+]
