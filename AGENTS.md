@@ -75,6 +75,11 @@ POST   /api/recipes/upload
 DELETE /api/recipes/{id}  
 GET    /api/recipes/{id}/scale  
 
+Scale contract:
+- `GET /api/recipes/{id}/scale?servings=N&unit=imperial|metric`
+- `servings` must be 1-100; default is the stored recipe serving count.
+- Raw SQLite quantities stay as floats; display quantities and converted display units are computed at request time.
+
 Upload contract:
 - `POST /api/recipes/upload` accepts JPEG, PNG, WEBP, GIF, and PDF files.
 - Uploads are capped at 20 MB before calling Claude.
@@ -102,12 +107,13 @@ Defaults:
 - prefer schema.org parsing before AI fallback
 - use `normalise_claude(raw, source_url)` as the shared normalizer for Claude URL fallback and upload parsing
 - use `insert_recipe(db, recipe)` for recipe/ingredient/step persistence
+- use Pint only for unit conversion, not serving-size multiplication
 
 ## Build Order
 1. Backend skeleton — done
 2. URL ingestion — done
 3. Photo/PDF ingestion — done
-4. Scaler
+4. Scaler — done
 5. Frontend
 6. Deployment
 

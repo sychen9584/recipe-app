@@ -2,8 +2,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import json
+from typing import Literal
+
 import httpx
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -11,6 +14,7 @@ from pydantic import BaseModel, HttpUrl
 
 from backend.db import get_db, insert_recipe
 from backend.parser import MAX_UPLOAD_BYTES, SUPPORTED_DOC_TYPES, SUPPORTED_IMAGE_TYPES, parse_upload
+from backend.scaler import scale_ingredients
 from backend.scraper import scrape_url
 
 app = FastAPI(title="Recipe App")
@@ -36,6 +40,49 @@ def list_recipes():
 @app.get("/api/recipes/{recipe_id}")
 def get_recipe(recipe_id: int):
     raise HTTPException(status_code=404, detail="Recipe not found")
+
+
+@app.get("/api/recipes/{recipe_id}/scale")
+def scale_recipe(
+    recipe_id: int,
+    servings: int | None = Query(default=None, ge=1, le=100),
+    unit: Literal["imperial", "metric"] = "imperial",
+):
+    db = get_db()
+    recipe = _get_recipe_row(db, recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    target_servings = servings or recipe.get("servings") or 1
+    ingredients = list(
+        db.query(
+            "select id, recipe_id, quantity, unit, name, preparation "
+            "from ingredients where recipe_id = ? order by id",
+            [recipe_id],
+        )
+    )
+    steps = list(
+        db.query(
+            "select id, recipe_id, step_number, instruction "
+            "from steps where recipe_id = ? order by step_number, id",
+            [recipe_id],
+        )
+    )
+
+    return {
+        **recipe,
+        "tags": _decode_tags(recipe.get("tags")),
+        "servings": target_servings,
+        "original_servings": recipe.get("servings") or 0,
+        "unit_system": unit,
+        "ingredients": scale_ingredients(
+            ingredients,
+            original_servings=recipe.get("servings") or 0,
+            target_servings=target_servings,
+            unit_system=unit,
+        ),
+        "steps": steps,
+    }
 
 
 @app.post("/api/recipes/url", status_code=201)
@@ -103,3 +150,24 @@ try:
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
 except RuntimeError:
     pass
+
+
+def _get_recipe_row(db, recipe_id: int) -> dict | None:
+    rows = list(
+        db.query(
+            "select id, title, source_url, servings, prep_min, cook_min, cuisine, tags, created_at "
+            "from recipes where id = ?",
+            [recipe_id],
+        )
+    )
+    return rows[0] if rows else None
+
+
+def _decode_tags(value) -> list[str]:
+    if not value:
+        return []
+    try:
+        decoded = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    return decoded if isinstance(decoded, list) else []

@@ -107,6 +107,11 @@ types with 415 and files over 20 MB with 413 before calling Claude. Uploads stor
 `source_url` as `upload:{filename}` and return a response-only `source` of
 `upload-image` or `upload-pdf`.
 
+Scale accepts `servings` from 1 to 100 and `unit` as `metric` or `imperial`.
+The backend stores raw float quantities and computes `display_quantity` plus
+`display_unit` at request time so unit-system preferences and frontend formatting
+can evolve without rewriting stored recipe rows.
+
 ## Environment variables
 ```
 DATABASE_URL        ./recipes.db (local) | /data/recipes.db (Render)
@@ -147,6 +152,8 @@ services:
 - Ingredients store `quantity` as a float and `unit` as a plain string.
   The scaler converts units using Pint; display uses fraction rounding
   (e.g. 0.5 → ½, 0.333 → ⅓).
+- Serving scaling is direct multiplication by target/original servings; Pint is
+  used only for unit conversion after the scaled raw quantity is known.
 - Claude API model: always use `claude-sonnet-4-20250514`. Max tokens 4096
   for parsing tasks.
 - Claude URL fallback and photo/PDF upload parsing share
@@ -158,7 +165,7 @@ services:
 1. Backend skeleton — done: FastAPI, SQLite schema, GET /api/recipes returns []
 2. URL ingestion — done: recipe_scrapers scrape_me → scrape_html → Claude fallback
 3. Photo + PDF ingestion — done: parser.py + POST /api/recipes/upload
-4. Serving scaler — scaler.py
+4. Serving scaler — done: scaler.py + GET /api/recipes/{id}/scale
 5. React frontend — scaffold components, wire to API
 6. Deploy config — render.yaml, verify persistent disk
 
