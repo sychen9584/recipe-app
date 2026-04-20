@@ -101,7 +101,7 @@ async def scrape_url(url: str) -> dict:
         raw = _claude_extract(text)
     except ClaudeExtractError as e:
         raise ValueError(f"Claude fallback failed: {e}") from e
-    normalised = _normalise_claude(raw, url)
+    normalised = normalise_claude(raw, url)
     if not normalised["ingredients"] and not normalised["steps"]:
         raise ValueError("No recipe ingredients or instructions found")
     return {**normalised, "source": "claude"}
@@ -322,10 +322,15 @@ def _claude_extract(page_text: str) -> dict:
         )
 
     body = "".join(block.text for block in message.content if block.type == "text").strip()
+    return parse_claude_json_body(body)
+
+
+def parse_claude_json_body(body: str) -> dict:
+    """Strip optional markdown fences and parse a Claude text response as JSON."""
     if not body:
         raise ClaudeExtractError("Claude returned an empty response")
     if body.startswith("```"):
-        body = re.sub(r"^```(?:json)?\s*|\s*```$", "", body, flags=re.MULTILINE)
+        body = re.sub(r"^```(?:json)?\s*|\s*```$", "", body, flags=re.MULTILINE).strip()
 
     try:
         return json.loads(body)
@@ -334,7 +339,7 @@ def _claude_extract(page_text: str) -> dict:
         raise ClaudeExtractError(f"Claude did not return JSON: {e.msg} — got: {snippet!r}") from e
 
 
-def _normalise_claude(raw: dict, source_url: str) -> dict:
+def normalise_claude(raw: dict, source_url: str) -> dict:
     if not isinstance(raw, dict):
         raise ClaudeExtractError("Claude JSON response was not an object")
 

@@ -75,6 +75,11 @@ POST   /api/recipes/upload
 DELETE /api/recipes/{id}  
 GET    /api/recipes/{id}/scale  
 
+Upload contract:
+- `POST /api/recipes/upload` accepts JPEG, PNG, WEBP, GIF, and PDF files.
+- Uploads are capped at 20 MB before calling Claude.
+- Uploaded recipes use `source_url = upload:{filename}` and response-only source tags `upload-image` or `upload-pdf`.
+
 ## Environment Variables
 DATABASE_URL  
 ANTHROPIC_API_KEY  
@@ -95,11 +100,13 @@ Defaults:
 - use claude-sonnet-4-20250514
 - max tokens 4096
 - prefer schema.org parsing before AI fallback
+- use `normalise_claude(raw, source_url)` as the shared normalizer for Claude URL fallback and upload parsing
+- use `insert_recipe(db, recipe)` for recipe/ingredient/step persistence
 
 ## Build Order
-1. Backend skeleton
-2. URL ingestion
-3. Photo/PDF ingestion
+1. Backend skeleton — done
+2. URL ingestion — done
+3. Photo/PDF ingestion — done
 4. Scaler
 5. Frontend
 6. Deployment

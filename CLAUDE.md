@@ -19,8 +19,8 @@ unit conversion. Hosted on Render (free tier) as a single service.
 recipe-app/
   backend/
     main.py          # FastAPI app entry point; also mounts frontend/dist/
-    db.py            # sqlite-utils Database instance + table helpers
-    scraper.py       # URL ingestion: schema.org JSON-LD first, Claude fallback
+    db.py            # sqlite-utils Database instance + insert_recipe helper
+    scraper.py       # URL ingestion: recipe_scrapers first, Claude fallback
     parser.py        # Photo + PDF ingestion via Claude Vision
     scaler.py        # Serving size scaling + unit conversion (Pint)
     pyproject.toml   # project metadata + dependencies (uv manages this)
@@ -78,6 +78,9 @@ dependencies = [
     "anthropic",
     "pint",
     "python-dotenv",
+    "h2",
+    "brotli",
+    "recipe-scrapers",
 ]
 ```
 
@@ -98,6 +101,11 @@ POST   /api/recipes/upload     multipart: file (image or PDF) → Claude Vision
 DELETE /api/recipes/{id}       remove recipe
 GET    /api/recipes/{id}/scale?servings=N&unit=metric|imperial
 ```
+
+Upload accepts JPEG, PNG, WEBP, GIF, and PDF files. The backend rejects unsupported
+types with 415 and files over 20 MB with 413 before calling Claude. Uploads store
+`source_url` as `upload:{filename}` and return a response-only `source` of
+`upload-image` or `upload-pdf`.
 
 ## Environment variables
 ```
@@ -134,18 +142,22 @@ services:
   in main.py so it never shadows API routes.
 - Database path always comes from `os.getenv("DATABASE_URL", "./recipes.db")`.
   Never hardcode a path.
+- Persist recipes with `insert_recipe(db, recipe)` so URL and upload ingestion use
+  the same explicit column list and child-table inserts.
 - Ingredients store `quantity` as a float and `unit` as a plain string.
   The scaler converts units using Pint; display uses fraction rounding
   (e.g. 0.5 → ½, 0.333 → ⅓).
 - Claude API model: always use `claude-sonnet-4-20250514`. Max tokens 4096
   for parsing tasks.
+- Claude URL fallback and photo/PDF upload parsing share
+  `normalise_claude(raw, source_url)` to avoid drift in recipe JSON cleanup.
 - Frontend calls backend as `${import.meta.env.VITE_API_URL}/api/...`.
   `VITE_API_URL` defaults to empty string (same origin) in production.
 
 ## Build order (follow this sequence)
-1. Backend skeleton — FastAPI, SQLite schema, GET /api/recipes returns []
-2. URL ingestion — scraper.py
-3. Photo + PDF ingestion — parser.py
+1. Backend skeleton — done: FastAPI, SQLite schema, GET /api/recipes returns []
+2. URL ingestion — done: recipe_scrapers scrape_me → scrape_html → Claude fallback
+3. Photo + PDF ingestion — done: parser.py + POST /api/recipes/upload
 4. Serving scaler — scaler.py
 5. React frontend — scaffold components, wire to API
 6. Deploy config — render.yaml, verify persistent disk

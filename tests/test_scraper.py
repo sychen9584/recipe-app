@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 
 from fastapi.testclient import TestClient
 
-from backend.scraper import _normalise_claude, _parse_quantity, _try_recipe_scrapers_html
+from backend.scraper import normalise_claude, _parse_quantity, _try_recipe_scrapers_html
 
 
 RECIPE_SCHEMA_HTML = """<!doctype html>
@@ -65,7 +65,7 @@ class ScraperTests(unittest.TestCase):
         )
 
     def test_claude_normalization_cleans_and_filters_payload(self):
-        recipe = _normalise_claude(
+        recipe = normalise_claude(
             {
                 "title": "  Test   Recipe ",
                 "servings": "4 servings",

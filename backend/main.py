@@ -2,8 +2,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import json
-
 import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +9,8 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 
-from backend.db import get_db
+from backend.db import get_db, insert_recipe
+from backend.parser import MAX_UPLOAD_BYTES, SUPPORTED_DOC_TYPES, SUPPORTED_IMAGE_TYPES, parse_upload
 from backend.scraper import scrape_url
 
 app = FastAPI(title="Recipe App")
@@ -53,27 +52,7 @@ async def ingest_url(payload: UrlIn):
         raise HTTPException(status_code=422, detail=str(e))
 
     try:
-        db = get_db()
-        recipe_id = db["recipes"].insert(
-            {
-                "title": recipe["title"],
-                "source_url": recipe["source_url"],
-                "servings": recipe["servings"],
-                "prep_min": recipe["prep_min"],
-                "cook_min": recipe["cook_min"],
-                "cuisine": recipe["cuisine"],
-                "tags": json.dumps(recipe["tags"]),
-            }
-        ).last_pk
-
-        if recipe["ingredients"]:
-            db["ingredients"].insert_all(
-                [{**ing, "recipe_id": recipe_id} for ing in recipe["ingredients"]]
-            )
-        if recipe["steps"]:
-            db["steps"].insert_all(
-                [{**step, "recipe_id": recipe_id} for step in recipe["steps"]]
-            )
+        recipe_id = insert_recipe(get_db(), recipe)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
 
@@ -83,9 +62,36 @@ async def ingest_url(payload: UrlIn):
     )
 
 
-@app.post("/api/recipes/upload")
-def ingest_upload(file: UploadFile = File(...)):
-    return {"status": "not implemented"}
+SUPPORTED_UPLOAD_TYPES = SUPPORTED_IMAGE_TYPES | SUPPORTED_DOC_TYPES
+
+
+@app.post("/api/recipes/upload", status_code=201)
+async def ingest_upload(file: UploadFile = File(...)):
+    media_type = file.content_type or ""
+    if media_type not in SUPPORTED_UPLOAD_TYPES:
+        raise HTTPException(status_code=415, detail=f"Unsupported file type: {media_type}")
+
+    file_bytes = await file.read()
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Upload too large: {len(file_bytes)} bytes (max {MAX_UPLOAD_BYTES})",
+        )
+
+    try:
+        recipe = await parse_upload(file_bytes, media_type, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    try:
+        recipe_id = insert_recipe(get_db(), recipe)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+
+    return JSONResponse(
+        status_code=201,
+        content={"id": recipe_id, **recipe},
+    )
 
 
 @app.delete("/api/recipes/{recipe_id}")

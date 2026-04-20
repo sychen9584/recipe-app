@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timezone
 
@@ -63,3 +64,32 @@ def get_db() -> sqlite_utils.Database:
 
     _db = db
     return _db
+
+
+def insert_recipe(db: sqlite_utils.Database, recipe: dict) -> int:
+    """Insert a normalised recipe dict into recipes/ingredients/steps. Returns the new recipe id.
+
+    Explicit column list keeps stray keys (like "source") out of the recipes table.
+    """
+    recipe_id = db["recipes"].insert(
+        {
+            "title": recipe["title"],
+            "source_url": recipe["source_url"],
+            "servings": recipe["servings"],
+            "prep_min": recipe["prep_min"],
+            "cook_min": recipe["cook_min"],
+            "cuisine": recipe["cuisine"],
+            "tags": json.dumps(recipe["tags"]),
+        }
+    ).last_pk
+
+    if recipe["ingredients"]:
+        db["ingredients"].insert_all(
+            [{**ing, "recipe_id": recipe_id} for ing in recipe["ingredients"]]
+        )
+    if recipe["steps"]:
+        db["steps"].insert_all(
+            [{**step, "recipe_id": recipe_id} for step in recipe["steps"]]
+        )
+
+    return recipe_id
