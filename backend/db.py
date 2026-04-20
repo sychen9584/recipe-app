@@ -1,5 +1,6 @@
 import json
 import os
+import sqlite3
 from datetime import datetime, timezone
 
 import sqlite_utils
@@ -14,7 +15,8 @@ def get_db() -> sqlite_utils.Database:
         return _db
 
     path = os.getenv("DATABASE_URL", "./recipes.db")
-    db = sqlite_utils.Database(path)
+    conn = sqlite3.connect(path, check_same_thread=False)
+    db = sqlite_utils.Database(conn)
 
     db.execute("PRAGMA foreign_keys = ON")
     db.execute("PRAGMA journal_mode = WAL")

@@ -33,13 +33,35 @@ class UrlIn(BaseModel):
 
 
 @app.get("/api/recipes")
-def list_recipes():
-    return []
+def list_recipes(q: str | None = None, tag: str | None = None):
+    db = get_db()
+    sql = (
+        "select id, title, source_url, servings, prep_min, cook_min, cuisine, tags, created_at "
+        "from recipes"
+    )
+    params: list[str] = []
+    if q:
+        sql += " where lower(title) like ?"
+        params.append(f"%{q.lower()}%")
+    sql += " order by created_at desc, id desc"
+
+    recipes = [_normalise_recipe_row(row) for row in db.query(sql, params)]
+    if tag:
+        tag_key = tag.lower()
+        recipes = [
+            recipe
+            for recipe in recipes
+            if any(existing.lower() == tag_key for existing in recipe["tags"])
+        ]
+    return recipes
 
 
 @app.get("/api/recipes/{recipe_id}")
 def get_recipe(recipe_id: int):
-    raise HTTPException(status_code=404, detail="Recipe not found")
+    recipe = _get_recipe_detail(get_db(), recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return recipe
 
 
 @app.get("/api/recipes/{recipe_id}/scale")
@@ -49,39 +71,23 @@ def scale_recipe(
     unit: Literal["imperial", "metric"] = "imperial",
 ):
     db = get_db()
-    recipe = _get_recipe_row(db, recipe_id)
+    recipe = _get_recipe_detail(db, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="Recipe not found")
 
     target_servings = servings or recipe.get("servings") or 1
-    ingredients = list(
-        db.query(
-            "select id, recipe_id, quantity, unit, name, preparation "
-            "from ingredients where recipe_id = ? order by id",
-            [recipe_id],
-        )
-    )
-    steps = list(
-        db.query(
-            "select id, recipe_id, step_number, instruction "
-            "from steps where recipe_id = ? order by step_number, id",
-            [recipe_id],
-        )
-    )
 
     return {
         **recipe,
-        "tags": _decode_tags(recipe.get("tags")),
         "servings": target_servings,
         "original_servings": recipe.get("servings") or 0,
         "unit_system": unit,
         "ingredients": scale_ingredients(
-            ingredients,
+            recipe["ingredients"],
             original_servings=recipe.get("servings") or 0,
             target_servings=target_servings,
             unit_system=unit,
         ),
-        "steps": steps,
     }
 
 
@@ -143,7 +149,14 @@ async def ingest_upload(file: UploadFile = File(...)):
 
 @app.delete("/api/recipes/{recipe_id}")
 def delete_recipe(recipe_id: int):
-    return {"status": "not implemented"}
+    db = get_db()
+    if _get_recipe_row(db, recipe_id) is None:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+
+    db.execute("delete from ingredients where recipe_id = ?", [recipe_id])
+    db.execute("delete from steps where recipe_id = ?", [recipe_id])
+    db.execute("delete from recipes where id = ?", [recipe_id])
+    return {"status": "deleted", "id": recipe_id}
 
 
 try:
@@ -161,6 +174,34 @@ def _get_recipe_row(db, recipe_id: int) -> dict | None:
         )
     )
     return rows[0] if rows else None
+
+
+def _get_recipe_detail(db, recipe_id: int) -> dict | None:
+    recipe = _get_recipe_row(db, recipe_id)
+    if recipe is None:
+        return None
+
+    return {
+        **_normalise_recipe_row(recipe),
+        "ingredients": list(
+            db.query(
+                "select id, recipe_id, quantity, unit, name, preparation "
+                "from ingredients where recipe_id = ? order by id",
+                [recipe_id],
+            )
+        ),
+        "steps": list(
+            db.query(
+                "select id, recipe_id, step_number, instruction "
+                "from steps where recipe_id = ? order by step_number, id",
+                [recipe_id],
+            )
+        ),
+    }
+
+
+def _normalise_recipe_row(row: dict) -> dict:
+    return {**row, "tags": _decode_tags(row.get("tags"))}
 
 
 def _decode_tags(value) -> list[str]:
