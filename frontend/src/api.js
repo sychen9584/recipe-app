@@ -28,6 +28,12 @@ export const api = {
   getRecipe: (id) => request(`/api/recipes/${id}`),
   scaleRecipe: (id, servings, unit) =>
     request(`/api/recipes/${id}/scale${query({ servings, unit })}`),
+  updateRecipe: (id, data) =>
+    request(`/api/recipes/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
   addByUrl: (url) =>
     request('/api/recipes/url', {
       method: 'POST',

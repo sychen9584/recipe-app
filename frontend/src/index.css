@@ -164,6 +164,10 @@ input:focus {
   border-color: var(--color-danger-hover);
 }
 
+.button-muted {
+  opacity: 0.55;
+}
+
 .toolbar,
 .form-panel,
 .scaler-box,
@@ -200,11 +204,20 @@ input:focus {
   background: var(--color-surface);
   color: var(--color-text);
   text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 140ms ease;
 }
 
 .recipe-card:hover {
   border-color: rgba(232, 112, 42, 0.55);
   background: var(--color-surface-hover);
+  transform: translateY(-1px);
+}
+
+.recipe-card:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(232, 112, 42, 0.18);
+  outline: none;
 }
 
 .tag-row {
@@ -220,6 +233,63 @@ input:focus {
   background: var(--color-accent-tint);
   color: var(--color-accent);
   font-size: 13px;
+}
+
+.tag-pill {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  font-size: 13px;
+  line-height: 1.2;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.tag-pill:hover {
+  border-color: var(--color-accent);
+}
+
+.tag-pill:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(232, 112, 42, 0.18);
+  outline: none;
+}
+
+.tag-pill--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: white;
+}
+
+.active-tag-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--color-accent-tint);
+  color: var(--color-text);
+  font-size: 14px;
+}
+
+.active-tag-banner button {
+  margin-left: auto;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent);
+  padding: 0;
+  font-size: 14px;
+}
+
+.active-tag-banner button:hover {
+  color: var(--color-accent-hover);
+}
+
+.action-row {
+  display: flex;
+  gap: 10px;
 }
 
 .state-text,
@@ -376,10 +446,86 @@ input:focus {
   margin: 0 auto;
 }
 
+.edit-layout {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
 .form-panel {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.edit-form {
+  gap: 18px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-label {
+  color: var(--color-text-muted);
+  font-size: 14px;
+}
+
+.tag-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.editable-tag {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 9px 6px 12px;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  font-size: 14px;
+}
+
+.editable-tag button {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-muted);
+  line-height: 1;
+  padding: 0;
+}
+
+.editable-tag button:hover {
+  color: var(--color-danger);
+}
+
+.tag-input-row {
+  display: flex;
+  flex: 1 1 250px;
+  gap: 8px;
+  min-width: 230px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .selected-file,
@@ -426,12 +572,28 @@ input:focus {
 
   .page-header,
   .detail-actions,
+  .active-tag-banner,
   .state-panel {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .active-tag-banner button {
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .action-row,
+  .form-actions,
+  .tag-input-row {
+    flex-direction: column;
+  }
+
   .detail-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
     grid-template-columns: 1fr;
   }
 

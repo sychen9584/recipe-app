@@ -6,6 +6,8 @@ from typing import Any
 from pint import UnitRegistry
 
 
+DEFAULT_SERVINGS = 4
+
 UNIT_MAP = {
     # volume
     "cup": "cup",
@@ -109,7 +111,7 @@ def scale_ingredients(
     if unit_system not in {"imperial", "metric"}:
         raise ValueError("unit_system must be 'imperial' or 'metric'")
 
-    base_servings = original_servings or target_servings or 1
+    base_servings = original_servings or DEFAULT_SERVINGS
     factor = target_servings / base_servings
     scaled: list[dict] = []
 

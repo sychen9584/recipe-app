@@ -48,6 +48,17 @@ def test_unmapped_unit_passthrough():
     assert result[0]["display_unit"] == "clove"
 
 
+def test_scale_ingredients_defaults_to_four_servings_when_original_servings_missing():
+    result = scale_ingredients(
+        [{"quantity": 1.0, "unit": "cup", "name": "rice", "preparation": ""}],
+        original_servings=0,
+        target_servings=8,
+    )
+
+    assert result[0]["quantity"] == 2.0
+    assert result[0]["display_quantity"] == "2"
+
+
 def test_scale_endpoint_returns_scaled_recipe(app_context, client):
     _, db_module = app_context
     db = db_module.get_db()
@@ -86,3 +97,38 @@ def test_scale_endpoint_returns_scaled_recipe(app_context, client):
     assert body["ingredients"][0]["display_unit"] == "ml"
     assert float(body["ingredients"][0]["display_quantity"]) > 400
     assert body["steps"][0]["instruction"] == "Mix."
+
+
+def test_scale_endpoint_defaults_to_four_servings_when_recipe_servings_missing(app_context, client):
+    _, db_module = app_context
+    db = db_module.get_db()
+    recipe_id = db_module.insert_recipe(
+        db,
+        {
+            "title": "Unknown Yield Recipe",
+            "source_url": "https://example.com/unknown",
+            "servings": 0,
+            "prep_min": 5,
+            "cook_min": 10,
+            "cuisine": "Test",
+            "tags": [],
+            "ingredients": [
+                {
+                    "quantity": 1.0,
+                    "unit": "cup",
+                    "name": "rice",
+                    "preparation": "",
+                }
+            ],
+            "steps": [{"step_number": 1, "instruction": "Cook."}],
+        },
+    )
+
+    response = client.get(f"/api/recipes/{recipe_id}/scale?servings=8")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["servings"] == 8
+    assert body["original_servings"] == 4
+    assert body["ingredients"][0]["quantity"] == 2.0
+    assert body["ingredients"][0]["display_quantity"] == "2"

@@ -2,17 +2,23 @@ import { useEffect, useState } from 'react'
 import * as Slider from '@radix-ui/react-slider'
 import { api } from './api.js'
 
-function RecipeDetail({ recipeId, onBack }) {
-  const [recipe, setRecipe] = useState(null)
-  const [scaledRecipe, setScaledRecipe] = useState(null)
-  const [servings, setServings] = useState(1)
+function RecipeDetail({ recipeId, initialRecipe, onBack, onEdit }) {
+  const [recipe, setRecipe] = useState(initialRecipe || null)
+  const [scaledRecipe, setScaledRecipe] = useState(initialRecipe || null)
+  const [servings, setServings] = useState(initialRecipe?.servings || 1)
   const [unit, setUnit] = useState('imperial')
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!initialRecipe)
   const [scaling, setScaling] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     let cancelled = false
+
+    if (initialRecipe) {
+      return () => {
+        cancelled = true
+      }
+    }
 
     api
       .getRecipe(recipeId)
@@ -33,7 +39,7 @@ function RecipeDetail({ recipeId, onBack }) {
     return () => {
       cancelled = true
     }
-  }, [recipeId])
+  }, [initialRecipe, recipeId])
 
   useEffect(() => {
     if (!recipe) return undefined
@@ -97,9 +103,14 @@ function RecipeDetail({ recipeId, onBack }) {
         <button className="button button-secondary" onClick={onBack}>
           ← Back
         </button>
-        <button className="button button-danger" onClick={handleDelete}>
-          Delete
-        </button>
+        <div className="action-row">
+          <button className="button button-secondary" onClick={onEdit}>
+            Edit
+          </button>
+          <button className="button button-danger" onClick={handleDelete}>
+            Delete
+          </button>
+        </div>
       </header>
 
       <div className="recipe-hero">
@@ -127,6 +138,9 @@ function RecipeDetail({ recipeId, onBack }) {
               <span>Servings</span>
               <strong>{servings}</strong>
             </div>
+            {!recipe.servings && (
+              <p className="mini-status">Original servings unknown; scaling defaults to 4 servings.</p>
+            )}
             <Slider.Root
               className="slider-root"
               min={1}

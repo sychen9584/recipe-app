@@ -4,6 +4,7 @@ import { api } from './api.js'
 function RecipeList({ onSelect, onAdd }) {
   const [recipes, setRecipes] = useState([])
   const [search, setSearch] = useState('')
+  const [activeTag, setActiveTag] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
@@ -15,7 +16,7 @@ function RecipeList({ onSelect, onAdd }) {
       setError('')
 
       api
-        .getRecipes(search)
+        .getRecipes(search, activeTag)
         .then((data) => {
           if (!cancelled) {
             setRecipes(data)
@@ -37,7 +38,19 @@ function RecipeList({ onSelect, onAdd }) {
       cancelled = true
       clearTimeout(timeout)
     }
-  }, [search, reloadKey])
+  }, [activeTag, search, reloadKey])
+
+  function handleSearchChange(event) {
+    setSearch(event.target.value)
+    setActiveTag('')
+  }
+
+  function handleCardKeyDown(event, recipeId) {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelect(recipeId)
+    }
+  }
 
   return (
     <section className="page-section">
@@ -59,10 +72,19 @@ function RecipeList({ onSelect, onAdd }) {
           id="recipe-search"
           type="search"
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by title"
+          onChange={handleSearchChange}
+          placeholder="Search by title or tag"
         />
       </div>
+
+      {activeTag && (
+        <div className="active-tag-banner">
+          <span>
+            Filtered by: <strong>{activeTag}</strong>
+          </span>
+          <button onClick={() => setActiveTag('')}>Clear ×</button>
+        </div>
+      )}
 
       {loading && <p className="state-text">Loading recipes... (may take up to 30s on first visit)</p>}
 
@@ -90,18 +112,25 @@ function RecipeList({ onSelect, onAdd }) {
       {!loading && !error && recipes.length > 0 && (
         <div className="recipe-grid">
           {recipes.map((recipe) => (
-            <button
+            <article
               className="recipe-card"
               key={recipe.id}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(recipe.id)}
+              onKeyDown={(event) => handleCardKeyDown(event, recipe.id)}
             >
               <h2>{recipe.title}</h2>
               <p className="muted">
                 {recipe.cuisine || 'Home kitchen'} · {totalTime(recipe)} min
               </p>
-              <p>{recipe.servings || 0} servings</p>
-              <TagList tags={recipe.tags} />
-            </button>
+              <p>{servingLabel(recipe.servings)}</p>
+              <TagList
+                activeTag={activeTag}
+                tags={recipe.tags}
+                onTagClick={setActiveTag}
+              />
+            </article>
           ))}
         </div>
       )}
@@ -113,17 +142,32 @@ function totalTime(recipe) {
   return (recipe.prep_min || 0) + (recipe.cook_min || 0)
 }
 
-function TagList({ tags = [] }) {
-  if (!tags.length) {
+function servingLabel(servings) {
+  if (!servings) return 'Servings unknown'
+  return `${servings} ${servings === 1 ? 'serving' : 'servings'}`
+}
+
+function TagList({ tags = [], activeTag, onTagClick }) {
+  const visibleTags = Array.isArray(tags) ? tags.filter(Boolean) : []
+
+  if (!visibleTags.length) {
     return null
   }
 
   return (
     <div className="tag-row">
-      {tags.map((tag) => (
-        <span className="tag" key={tag}>
+      {visibleTags.map((tag, index) => (
+        <button
+          className={`tag-pill ${activeTag === tag ? 'tag-pill--active' : ''}`}
+          key={`${tag}-${index}`}
+          onClick={(event) => {
+            event.stopPropagation()
+            onTagClick((previous) => (previous === tag ? '' : tag))
+          }}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
           {tag}
-        </span>
+        </button>
       ))}
     </div>
   )
