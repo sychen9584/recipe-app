@@ -64,7 +64,7 @@ function RecipeList({ onSelect, onAdd }) {
         />
       </div>
 
-      {loading && <p className="state-text">Loading recipes...</p>}
+      {loading && <p className="state-text">Loading recipes... (may take up to 30s on first visit)</p>}
 
       {!loading && error && (
         <div className="state-panel">

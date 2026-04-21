@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: recipe-app
+    runtime: python
+    buildCommand: pip install uv && uv sync && cd frontend && npm install && npm run build
+    startCommand: uv run uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: /data/recipes.db
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    disk:
+      name: recipe-data
+      mountPath: /data
+      sizeGB: 1
